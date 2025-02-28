@@ -1,0 +1,90 @@
+upstream odoo {
+    server odoo:8069;
+}
+
+upstream odoochat {
+    server odoo:8072;
+}
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    # Log files
+    access_log /var/log/nginx/odoo-access.log;
+    error_log /var/log/nginx/odoo-error.log;
+
+    # SSL/TLS configuration (commented out by default)
+    # listen 443 ssl;
+    # ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    # ssl_session_timeout 30m;
+    # ssl_protocols TLSv1.2 TLSv1.3;
+    # ssl_prefer_server_ciphers off;
+    # ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
+    # ssl_session_cache shared:SSL:10m;
+
+    # Common headers for security
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Frame-Options SAMEORIGIN;
+
+    # Redirect to HTTPS (uncomment when SSL is configured)
+    # if ($scheme = http) {
+    #     return 301 https://$server_name$request_uri;
+    # }
+
+    # Proxy timeout settings
+    proxy_read_timeout 720s;
+    proxy_connect_timeout 720s;
+    proxy_send_timeout 720s;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Real-IP $remote_addr;
+
+    # Increase max body size for large file uploads
+    client_max_body_size 100M;
+
+    # Compression
+    gzip on;
+    gzip_min_length 1000;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/xml text/css text/javascript application/javascript application/json application/xml;
+    gzip_disable "MSIE [1-6]\.";
+
+    # Cache static files
+    location ~* /web/static/ {
+        proxy_cache_valid 200 60m;
+        proxy_buffering on;
+        expires 864000;
+        proxy_pass http://odoo;
+    }
+
+    # Common assets caching
+    location ~* .(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires 2d;
+        proxy_pass http://odoo;
+    }
+
+    # Prevent clients from accessing hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # WebSocket for longpolling
+    location /longpolling {
+        proxy_pass http://odoochat;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Main odoo proxy
+    location / {
+        proxy_pass http://odoo;
+        proxy_redirect off;
+    }
+}

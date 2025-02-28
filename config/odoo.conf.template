@@ -1,0 +1,54 @@
+[options]
+; This is the password that allows database operations:
+admin_passwd = ${ADMIN_PASSWORD}
+
+; Database settings
+db_host = db
+db_port = 5432
+db_user = ${POSTGRES_USER}
+db_password = ${POSTGRES_PASSWORD}
+db_name = ${POSTGRES_DB}
+db_template = template0
+db_maxconn = 64
+
+; Addons settings
+addons_path = /mnt/extra-addons
+
+; Worker settings - adapt based on server resources
+workers = 4
+max_cron_threads = 2
+
+; Performance tuning
+limit_memory_soft = 2147483648
+limit_memory_hard = 2684354560
+limit_request = 8192
+limit_time_cpu = 60
+limit_time_real = 120
+
+; Data handling
+data_dir = /var/lib/odoo
+list_db = True
+log_db = False
+proxy_mode = True
+without_demo = True
+
+; Logging settings
+logfile = /var/log/odoo/odoo-server.log
+log_level = info
+log_handler = [':INFO']
+logrotate = True
+
+; Longpolling settings
+longpolling_port = 8072
+
+; Security settings
+; By default, Odoo is publicly available
+xmlrpc = True
+xmlrpc_interface = 
+xmlrpc_port = 8069
+xmlrpcs = True
+xmlrpcs_interface = 
+xmlrpcs_port = 8071
+
+; Comma-separated list of server-wide modules
+server_wide_modules = base,web
