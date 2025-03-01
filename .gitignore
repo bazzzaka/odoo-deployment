@@ -1,0 +1,7 @@
+config/nginx.conf
+config/odoo.conf
+.env
+.vscode/
+.qodo/
+logs/
+data/
