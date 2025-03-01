@@ -31,17 +31,24 @@ apt-get install -y \
 
 # Install Docker and Docker Compose - handled by setup_docker.sh
 
-# Install Python 3.12 from deadsnakes PPA
-echo -e "${BLUE}Installing Python 3.12...${NC}"
-add-apt-repository -y ppa:deadsnakes/ppa
-apt-get update
-apt-get install -y python3.12 python3.12-dev python3.12-venv
+# Install python inside docker
+# In install_deps.sh, replace Python 3.12 installation section with:
+# echo -e "${BLUE}Checking Python 3.12...${NC}"
+# if ! command -v python3.12 &> /dev/null; then
+#     echo -e "${RED}Python 3.12 not found. Manual installation might be required.${NC}"
+#     exit 1
+# fi
+# # Install Python 3.12 from deadsnakes PPA
+# echo -e "${BLUE}Installing Python 3.12...${NC}"
+# add-apt-repository -y ppa:deadsnakes/ppa
+# apt-get update
+# apt-get install -y python3.12 python3.12-dev python3.12-venv
 
-# Set Python 3.12 as the default python3
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+# # Set Python 3.12 as the default python3
+# update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 2
 
-# Install pip for Python 3.12
-curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
+# # Install pip for Python 3.12
+# curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
 
 # Install PostgreSQL client for backups
 echo -e "${BLUE}Installing PostgreSQL client...${NC}"
