@@ -6,6 +6,41 @@ SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 # Generate locale C.UTF-8 for postgres and general locale data
 ENV LANG en_US.UTF-8
 
+# Install core dependencies and Docker
+RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    python3-apt \
+    python3-software-properties
+
+# Add Docker's official GPG key and repository
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+RUN echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker components
+RUN apt-get update && apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-compose-plugin
+
+# Install Docker Compose
+RUN mkdir -p /usr/local/lib/docker/cli-plugins && \
+    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
+    ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+
+# Clean up to reduce image size
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
@@ -83,7 +118,25 @@ RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main' > /etc/a
 RUN npm install -g rtlcss
 
 # Setup virtual environment
-RUN python3.12 -m venv /opt/venv
+# Base Python 3.12 Installation
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update \
+    && apt-get install -y \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    python3.12-distutils \
+    python3.12-lib2to3 \
+    python3.12-pip \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 2
+
+# Set Python 3.12 as default
+ENV PYTHON_VERSION=3.12
+ENV PYTHON_EXECUTABLE=/usr/bin/python3.12
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Odoo Python dependencies

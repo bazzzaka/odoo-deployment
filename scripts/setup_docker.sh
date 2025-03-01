@@ -1,55 +1,61 @@
 #!/bin/bash
 
-# Script to install Docker and Docker Compose
+# Script to prepare Docker environment for Odoo deployment
 set -e
 
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'
+NC='\033[0m'
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo -e "${BLUE}Installing Docker...${NC}"
+# Check for Docker installation
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Docker is not installed. Please install Docker manually.${NC}"
+    exit 1
+fi
 
-# Install Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
-
-# Install Docker Compose v2
-echo -e "${BLUE}Installing Docker Compose...${NC}"
-mkdir -p /usr/local/lib/docker/cli-plugins
-curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
-
-# Test Docker installation
-echo -e "${BLUE}Testing Docker installation...${NC}"
-docker --version
-docker compose version
+# Verify Docker is running
+if ! docker info &> /dev/null; then
+    echo -e "${RED}Docker daemon is not running. Please start Docker service.${NC}"
+    exit 1
+fi
 
 # Create Docker network
-echo -e "${BLUE}Creating Docker network...${NC}"
-docker network create odoo-network || true
+echo -e "${BLUE}Creating Docker network for Odoo...${NC}"
+if ! docker network inspect odoo-network &> /dev/null; then
+    docker network create odoo-network
+    echo -e "${GREEN}Docker network 'odoo-network' created successfully.${NC}"
+else
+    echo -e "${BLUE}Docker network 'odoo-network' already exists.${NC}"
+fi
 
-# Create directories for the volumes if not exist
-echo -e "${BLUE}Creating directories for Docker volumes...${NC}"
+# Create directories for persistent data
+echo -e "${BLUE}Creating data directories...${NC}"
 mkdir -p "$BASE_DIR/data/db"
 mkdir -p "$BASE_DIR/data/odoo"
 mkdir -p "$BASE_DIR/data/backups"
 mkdir -p "$BASE_DIR/logs"
 
-# Set proper permissions for the data directories
-echo -e "${BLUE}Setting proper permissions for data directories...${NC}"
+# Set proper permissions for data directories
+echo -e "${BLUE}Setting permissions for data directories...${NC}"
 chmod -R 777 "$BASE_DIR/data"
 
-# Pull necessary Docker images
-echo -e "${BLUE}Pulling necessary Docker images...${NC}"
-docker pull postgres:15-alpine
-docker pull nginx:alpine
+# Verify required images are available
+REQUIRED_IMAGES=("postgres:15-alpine" "nginx:alpine")
 
-echo -e "${GREEN}Docker and Docker Compose installed successfully!${NC}"
+for image in "${REQUIRED_IMAGES[@]}"; do
+    if [[ "$(docker images -q "$image" 2> /dev/null)" == "" ]]; then
+        echo -e "${BLUE}Pulling Docker image: $image${NC}"
+        docker pull "$image"
+    else
+        echo -e "${BLUE}Image $image already exists locally.${NC}"
+    fi
+done
+
+# Final status
+echo -e "${GREEN}Docker environment preparation completed successfully.${NC}"
