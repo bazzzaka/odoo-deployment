@@ -115,9 +115,13 @@ RUN if [ "$BUILD_ENV" = "dev" ]; then \
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create directories and setup permissions
+# Create directories and setup user permissions - with handling for if odoo user already exists
 RUN mkdir -p /var/lib/odoo /mnt/extra-addons /etc/odoo /var/log/odoo && \
-    useradd -ms /bin/bash -d /var/lib/odoo -G odoo odoo && \
+    # First create the odoo group if it doesn't exist
+    getent group odoo || groupadd -r odoo && \
+    # Then check if the odoo user exists, if not create it
+    getent passwd odoo || useradd -ms /bin/bash -d /var/lib/odoo -g odoo odoo && \
+    # Finally set correct permissions on directories
     chown -R odoo:odoo /var/lib/odoo /mnt/extra-addons /etc/odoo /var/log/odoo
 
 # Copy wait-for script
