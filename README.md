@@ -232,3 +232,85 @@ Regularly check:
 ## License
 
 This deployment solution is licensed under the MIT License - see the LICENSE file for details.
+
+## Troubleshooting
+
+### Database Initialization Issues
+
+#### Symptoms
+- Error messages about missing tables like `ir_module_module`
+- Login page appears but fails to authenticate
+- Error logs showing database relation does not exist
+
+#### Solution
+If the database exists but wasn't properly initialized with Odoo tables, run:
+
+```bash
+# Run the manual database initialization script
+chmod +x scripts/init_database.sh
+./scripts/init_database.sh
+```
+
+This will drop the existing database and create a new one with the specified modules.
+
+### Module Installation Issues
+
+#### Symptoms
+- Modules listed in INIT_MODULES weren't installed
+- Error messages when accessing specific functionality
+
+#### Solution
+You can manually install modules using:
+
+```bash
+# Install or update specific modules
+make install-modules MODULES=base,web,mail,crm,sale_management
+```
+
+### Database Connection Issues
+
+#### Symptoms
+- "Database connection failure" messages
+- Odoo container restarts repeatedly
+
+#### Solution
+1. Check that PostgreSQL is running:
+   ```bash
+   docker ps | grep odoo-db
+   ```
+
+2. Verify database credentials in .env match what's in use:
+   ```bash
+   make logs | grep "Database configuration"
+   ```
+
+3. Ensure the database directory has correct permissions:
+   ```bash
+   chmod -R 777 data/db
+   ```
+
+### Log Locations for Troubleshooting
+
+- **Odoo Logs**: `logs/odoo/odoo-server.log`
+- **Nginx Logs**: `logs/nginx/odoo-access.log` and `logs/nginx/odoo-error.log`
+- **Docker Logs**: `logs/docker-errors.log`
+- **Container Logs**: Available through `make logs`
+
+### Cleaning and Starting Fresh
+
+If you want to completely reset your Odoo installation:
+
+```bash
+# Stop all containers and remove volumes
+make clean
+
+# Remove data directories
+rm -rf data/db/* data/odoo/*
+
+# Remove logs
+rm -rf logs/*
+
+# Setup again
+make setup
+make prod  # or make dev for development mode
+```
