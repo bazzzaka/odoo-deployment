@@ -5,8 +5,8 @@ set -e
 # Set the postgres database host, port, user and password according to environment variables
 : ${HOST:=${DB_PORT_5432_TCP_ADDR:='db'}}
 : ${PORT:=${DB_PORT_5432_TCP_PORT:=5432}}
-: ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo'}}}
-: ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo'}}}
+: ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo_user'}}}
+: ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo_password'}}}
 : ${ADMIN_PASSWORD:='admin'}
 
 DB_ARGS=()
@@ -38,8 +38,8 @@ until PGPASSWORD=$PASSWORD psql -h $HOST -p $PORT -U $USER -d postgres -c "SELEC
         echo "Error: Could not connect to PostgreSQL after $max_retries attempts"
         exit 1
     fi
-    echo "PostgreSQL is unavailable - sleeping 1 second..."
-    sleep 1
+    echo "PostgreSQL is unavailable - sleeping 10 second..."
+    sleep 10
 done
 
 echo "PostgreSQL is up - executing command"

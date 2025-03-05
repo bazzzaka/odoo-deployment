@@ -5,3 +5,4 @@ config/odoo.conf
 .qodo/
 logs/
 data/
+docker/odoo.conf
