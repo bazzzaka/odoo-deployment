@@ -9,12 +9,18 @@ if [ -f /etc/odoo/odoo.conf.template ]; then
     echo "Configuration file generated successfully"
 fi
 
-# Set the postgres database host, port, user and password according to environment variables
-: ${HOST:=${DB_PORT_5432_TCP_ADDR:='db'}}
-: ${PORT:=${DB_PORT_5432_TCP_PORT:=5432}}
-: ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo'}}}
-: ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo'}}}
-: ${ADMIN_PASSWORD:='admin'}
+# Check for required environment variables
+if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$ADMIN_PASSWORD" ]; then
+    echo "Error: Required environment variables are not set"
+    echo "Please ensure POSTGRES_USER, POSTGRES_PASSWORD, and ADMIN_PASSWORD are defined in your .env file"
+    exit 1
+fi
+
+# Set connection parameters safely
+HOST=${DB_HOST:-"db"}  # Only non-sensitive values should have defaults
+PORT=${DB_PORT:-5432}
+USER=$POSTGRES_USER     # No default for sensitive values
+PASSWORD=$POSTGRES_PASSWORD
 : ${BUILD_ENV:='prod'}
 
 # Function to check if a parameter exists in odoo.conf

@@ -8,6 +8,9 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_DB=${POSTGRES_DB}
       - PGDATA=/var/lib/postgresql/data/pgdata
+      # Add these environment variables to configure authentication
+      - POSTGRES_HOST_AUTH_METHOD=md5
+      - POSTGRES_INITDB_ARGS=--auth-host=md5 --auth-local=md5
     volumes:
       - ${DB_VOLUME_PATH:-./data/db}:/var/lib/postgresql/data/pgdata:z
     networks:
@@ -23,11 +26,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        - ODOO_VERSION=${ODOO_VERSION}
-        - ODOO_RELEASE=${ODOO_RELEASE}
-        - ODOO_SHA=${ODOO_SHA}
-        - BUILD_ENV=${BUILD_ENV:-prod}
     container_name: odoo-app
     depends_on:
       db:
