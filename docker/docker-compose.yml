@@ -86,3 +86,6 @@ services:
 networks:
   odoo-network:
     driver: bridge
+
+volumes:
+  odoo_data:
