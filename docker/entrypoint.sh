@@ -2,13 +2,6 @@
 
 set -e
 
-# Process the odoo.conf template with environment variables
-if [ -f /etc/odoo/odoo.conf.template ]; then
-    echo "Generating odoo.conf from template..."
-    envsubst < /etc/odoo/odoo.conf.template > /etc/odoo/odoo.conf
-    echo "Configuration file generated successfully"
-fi
-
 # Check for required environment variables
 if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$ADMIN_PASSWORD" ]; then
     echo "Error: Required environment variables are not set"
@@ -16,40 +9,76 @@ if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$ADMIN_PASSWO
     exit 1
 fi
 
-# Set connection parameters safely
-HOST=${DB_HOST:-"db"}  # Only non-sensitive values should have defaults
-PORT=${DB_PORT:-5432}
-USER=$POSTGRES_USER     # No default for sensitive values
-PASSWORD=$POSTGRES_PASSWORD
-: ${BUILD_ENV:='prod'}
+# Set connection parameters
+DB_HOST=${DB_HOST:-db}
+DB_PORT=${DB_PORT:-5432}
+DB_USER=$POSTGRES_USER
+DB_PASSWORD=$POSTGRES_PASSWORD
+DB_NAME=${POSTGRES_DB:-odoo}
+BUILD_ENV=${BUILD_ENV:-prod}
 
-# Function to check if a parameter exists in odoo.conf
-function is_param_in_config() {
-    local param=$1
-    if grep -q -E "^\s*\b${param}\b\s*=" "$ODOO_RC"; then
-        return 0
-    else
-        return 1
-    fi
-}
+# Create a fresh odoo.conf with explicit values (not relying on envsubst)
+echo "Creating Odoo configuration file with explicit values..."
+cat > /etc/odoo/odoo.conf << EOF
+[options]
+; This is the password that allows database operations:
+admin_passwd = $ADMIN_PASSWORD
 
-# Define database connection arguments for command line
-DB_ARGS=()
-function add_db_arg() {
-    param="$1"
-    value="$2"
-    if is_param_in_config "$param"; then
-        value=$(grep -E "^\s*\b${param}\b\s*=" "$ODOO_RC" | cut -d "=" -f2 | tr -d " \"'\r\n")
-    fi
-    DB_ARGS+=("--${param}")
-    DB_ARGS+=("${value}")
-}
+; Database settings
+db_host = $DB_HOST
+db_port = $DB_PORT
+db_user = $DB_USER
+db_password = $DB_PASSWORD
+db_name = $DB_NAME
+db_template = template0
+db_maxconn = 64
 
-# Add database connection parameters
-add_db_arg "db_host" "$HOST"
-add_db_arg "db_port" "$PORT"
-add_db_arg "db_user" "$USER"
-add_db_arg "db_password" "$PASSWORD"
+; Addons settings
+addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+
+; Worker settings - adapt based on server resources
+workers = ${WORKERS:-2}
+max_cron_threads = ${CRON_WORKERS:-1}
+
+; Performance tuning
+limit_memory_soft = ${MEMORY_SOFT:-2147483648}
+limit_memory_hard = ${MEMORY_HARD:-2684354560}
+limit_request = 8192
+limit_time_cpu = ${CPU_LIMIT:-60}
+limit_time_real = ${REAL_LIMIT:-120}
+
+; Data handling
+data_dir = /var/lib/odoo
+list_db = ${LIST_DB:-True}
+log_db = False
+proxy_mode = True
+without_demo = ${WITHOUT_DEMO:-True}
+
+; Logging settings
+logfile = /var/log/odoo/odoo-server.log
+log_level = ${LOG_LEVEL:-info}
+log_handler = [':INFO']
+logrotate = True
+
+; Longpolling settings
+longpolling_port = 8072
+
+; Security settings
+xmlrpc = True
+xmlrpc_interface = 
+xmlrpc_port = 8069
+xmlrpcs = True
+xmlrpcs_interface = 
+xmlrpcs_port = 8071
+
+; Server-wide modules
+server_wide_modules = base,web
+EOF
+
+echo "Configuration file created successfully"
+
+# Set the default config file
+export ODOO_RC=/etc/odoo/odoo.conf
 
 # Create log directory if it doesn't exist
 if [ ! -d /var/log/odoo ]; then
@@ -57,37 +86,67 @@ if [ ! -d /var/log/odoo ]; then
     chown -R odoo:odoo /var/log/odoo
 fi
 
-# Wait for PostgreSQL to be available (using the wait-for-psql script)
+# Display the database configuration for debugging
+echo "Database configuration:"
+echo "Host: $DB_HOST"
+echo "Port: $DB_PORT"
+echo "User: $DB_USER"
+echo "Database: $DB_NAME"
+
+# Wait for PostgreSQL to be available
 echo "Waiting for database to be ready..."
-if ! wait-for-psql.py ${DB_ARGS[@]} --timeout=60; then
-    echo "Database connection failure. Exiting."
-    exit 1
-fi
-echo "Database is ready."
+max_attempts=30
+attempt=1
+
+while [ $attempt -le $max_attempts ]; do
+    echo "Attempt $attempt: Connecting to PostgreSQL..."
+    if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d postgres -c "SELECT 1" >/dev/null 2>&1; then
+        echo "Database connection successful!"
+        break
+    else
+        echo "Could not connect to database, retrying in 2 seconds..."
+        attempt=$((attempt+1))
+        sleep 2
+    fi
+    
+    if [ $attempt -gt $max_attempts ]; then
+        echo "Failed to connect to database after $max_attempts attempts. Exiting."
+        exit 1
+    fi
+done
+
+# Define database connection arguments for command line
+DB_ARGS=()
+DB_ARGS+=("--db_host")
+DB_ARGS+=("$DB_HOST")
+DB_ARGS+=("--db_port")
+DB_ARGS+=("$DB_PORT")
+DB_ARGS+=("--db_user")
+DB_ARGS+=("$DB_USER")
+DB_ARGS+=("--db_password")
+DB_ARGS+=("$DB_PASSWORD")
 
 # Check if we're in dev mode
 if [ "$BUILD_ENV" = "dev" ]; then
     echo "Running in development mode"
     # Enable extra development features
     DB_ARGS+=("--dev=all")
-    # For debugging with VS Code, uncomment the following line:
-    # DB_ARGS+=("--limit-time-real=10000")
 fi
 
 # Check if the database exists
-DB_EXISTS=$(PGPASSWORD=$PASSWORD psql -h $HOST -p $PORT -U $USER -tAc "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'")
+DB_EXISTS=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'")
 
 # Initialize database if it doesn't exist
 if [ "$DB_EXISTS" != "1" ]; then
-    echo "Initializing Odoo database '${POSTGRES_DB}'..."
+    echo "Initializing Odoo database '${DB_NAME}'..."
     
     # Get modules to initialize from environment variable or use default
     MODULES_TO_INIT=${INIT_MODULES:-base}
     echo "Modules to initialize: ${MODULES_TO_INIT}"
     
-    # Prepare database with basic structure
+    # Add initialization parameters
     DB_ARGS+=("--init=${MODULES_TO_INIT}")
-    DB_ARGS+=("--database=${POSTGRES_DB}")
+    DB_ARGS+=("--database=${DB_NAME}")
     DB_ARGS+=("--without-demo=${WITHOUT_DEMO:-all}")
     
     # Create the database and install initial modules
@@ -108,7 +167,7 @@ if [ "$DB_EXISTS" != "1" ]; then
     
     echo "Continuing with normal startup..."
 else
-    echo "Database '${POSTGRES_DB}' already exists, skipping initialization"
+    echo "Database '${DB_NAME}' already exists, skipping initialization"
 fi
 
 # Process the command
