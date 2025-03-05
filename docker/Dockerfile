@@ -1,8 +1,18 @@
-# Multi-stage build for Odoo 18.0
-# Stage 1: Build dependencies
+# Multi-stage build for Odoo 18.0 #
+# - - - - - - - - - - - - - - - - #
+#   Stage 1: Build dependencies   #
+# - - - - - - - - - - - - - - - - #
 FROM ubuntu:noble AS builder
 
+
 # Set environment variables
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales \
+    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
+    && locale-gen \
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
@@ -85,10 +95,20 @@ RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/od
     && apt-get -y install --no-install-recommends ./odoo.deb \
     && rm -rf /var/lib/apt/lists/* odoo.deb
 
-# Stage 2: Final image
+
+# - - - - - - - - - - - - - - - - #
+#      Stage 2: Final image       #
+# - - - - - - - - - - - - - - - - #
 FROM ubuntu:noble
 
 # Set environment variables
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales \
+    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
+    && locale-gen \
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+    
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
