@@ -32,6 +32,7 @@ RUN apt-get update && \
         python3-pip \
         python3-wheel \
         python3-setuptools \
+        xz-utils \
         # System dependencies
         libxml2-dev \
         libxslt1-dev \
@@ -54,6 +55,7 @@ RUN apt-get update && \
         python3-num2words \
         python3-odf \
         python3-pdfminer \
+        python3-pypdf2 \
         python3-phonenumbers \
         python3-pyldap \
         python3-qrcode \
@@ -96,7 +98,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
-    pip install wheel setuptools
+    pip install wheel setuptools psycopg2-binary
 
 # Install Odoo
 RUN if [ "$BUILD_ENV" = "dev" ]; then \
@@ -108,7 +110,7 @@ RUN if [ "$BUILD_ENV" = "dev" ]; then \
         echo "${ODOO_SHA} odoo.deb" | sha1sum -c -; \
     fi && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ./odoo.deb && \
+    apt-get -y install --no-install-recommends ./odoo.deb && \
     rm -rf /var/lib/apt/lists/* odoo.deb
 
 # Copy entrypoint script and make it executable
