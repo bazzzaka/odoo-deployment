@@ -71,10 +71,7 @@ xmlrpcs = True
 xmlrpcs_interface = 
 xmlrpcs_port = 8071
 
-; Server-wide modules
-server_wide_modules = base,web
 EOF
-
 echo "Configuration file created successfully"
 
 # Set the default config file
@@ -133,43 +130,14 @@ if [ "$BUILD_ENV" = "dev" ]; then
     DB_ARGS+=("--dev=all")
 fi
 
-# Check if the database exists
+# Check if the database exists AND has Odoo tables initialized
 DB_EXISTS=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'")
 
-# Initialize database if it doesn't exist
 if [ "$DB_EXISTS" != "1" ]; then
-    echo "Initializing Odoo database '${DB_NAME}'..."
-    
-    # Get modules to initialize from environment variable or use default
-    MODULES_TO_INIT=${INIT_MODULES:-base}
-    echo "Modules to initialize: ${MODULES_TO_INIT}"
-    
-    # Add initialization parameters
-    DB_ARGS+=("--init=${MODULES_TO_INIT}")
-    DB_ARGS+=("--database=${DB_NAME}")
-    DB_ARGS+=("--without-demo=${WITHOUT_DEMO:-all}")
-    
-    # Create the database and install initial modules
-    echo "Running initial module installation..."
-    odoo "${DB_ARGS[@]}"
-    
-    echo "Database initialization completed"
-    
-    # Remove the initialization flags for normal startup
-    # We need to recreate the array to properly remove the init parameter
-    NEW_DB_ARGS=()
-    for arg in "${DB_ARGS[@]}"; do
-        if [[ "$arg" != "--init=${MODULES_TO_INIT}" && "$arg" != "--without-demo=${WITHOUT_DEMO:-all}" ]]; then
-            NEW_DB_ARGS+=("$arg")
-        fi
-    done
-    DB_ARGS=("${NEW_DB_ARGS[@]}")
-    
-    echo "Continuing with normal startup..."
-else
-    echo "Database '${DB_NAME}' already exists, skipping initialization"
+    echo "Database '${DB_NAME}' does not exist. Creating it now..."
+    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER} TEMPLATE template0 ENCODING 'UTF8';" postgres
+    echo "Database created successfully."
 fi
-
 # Process the command
 case "$1" in
     -- | odoo)

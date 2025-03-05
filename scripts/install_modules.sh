@@ -26,7 +26,7 @@ MODULES=$1
 echo -e "${BLUE}Installing Odoo modules: ${MODULES}${NC}"
 
 # Run Odoo with the update flag
-docker exec -it odoo-app odoo -u "$MODULES" -d "$POSTGRES_DB"
+docker exec -it odoo-app odoo -i "$MODULES" -d "$POSTGRES_DB"
 
 echo -e "${GREEN}Module installation complete!${NC}"
 echo -e "${BLUE}You can now access the updated modules in Odoo.${NC}"
