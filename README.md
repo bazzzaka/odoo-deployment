@@ -179,3 +179,19 @@ odoo-deploy/
 ├── Makefile                    # Automation commands
 └── README.md                   # Documentation
 ```
+
+
+
+Switch to PostgreSQL user:
+sudo -u postgres psql
+Create a new PostgreSQL user for Odoo (replace 'odoo_user' with your desired username):
+CREATE USER odoo_user WITH ENCRYPTED PASSWORD 'your_strong_password';
+Create the Odoo database:
+CREATE DATABASE odoo_database;
+Grant all privileges to the user on the database:
+GRANT ALL PRIVILEGES ON DATABASE odoo_database TO odoo_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO odoo_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO odoo_user;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO odoo_user;
+Exit PostgreSQL prompt:
+\q
