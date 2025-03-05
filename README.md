@@ -24,8 +24,8 @@ This repository provides a comprehensive, automated solution for deploying Odoo 
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/odoo-deploy.git
-   cd odoo-deploy
+   git clone https://github.com/your-username/odoo-deployment.git
+   cd odoo-deployment
    ```
 
 2. **Configure environment**:
