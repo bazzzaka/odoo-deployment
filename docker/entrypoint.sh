@@ -2,70 +2,125 @@
 
 set -e
 
+# Process the odoo.conf template with environment variables
+if [ -f /etc/odoo/odoo.conf.template ]; then
+    echo "Generating odoo.conf from template..."
+    envsubst < /etc/odoo/odoo.conf.template > /etc/odoo/odoo.conf
+    echo "Configuration file generated successfully"
+fi
+
 # Set the postgres database host, port, user and password according to environment variables
 : ${HOST:=${DB_PORT_5432_TCP_ADDR:='db'}}
 : ${PORT:=${DB_PORT_5432_TCP_PORT:=5432}}
-: ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo_user'}}}
-: ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo_password'}}}
+: ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo'}}}
+: ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo'}}}
 : ${ADMIN_PASSWORD:='admin'}
+: ${BUILD_ENV:='prod'}
 
+# Function to check if a parameter exists in odoo.conf
+function is_param_in_config() {
+    local param=$1
+    if grep -q -E "^\s*\b${param}\b\s*=" "$ODOO_RC"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Define database connection arguments for command line
 DB_ARGS=()
-function check_config() {
+function add_db_arg() {
     param="$1"
     value="$2"
-    if grep -q -E "^\s*\b${param}\b\s*=" "$ODOO_RC" ; then       
-        value=$(grep -E "^\s*\b${param}\b\s*=" "$ODOO_RC" |cut -d " " -f3|sed 's/["\n\r]//g')
-    fi;
+    if is_param_in_config "$param"; then
+        value=$(grep -E "^\s*\b${param}\b\s*=" "$ODOO_RC" | cut -d "=" -f2 | tr -d " \"'\r\n")
+    fi
     DB_ARGS+=("--${param}")
     DB_ARGS+=("${value}")
 }
 
-# Set Odoo config parameters
-export ODOO_RC=/etc/odoo/odoo.conf
-check_config "db_host" "$HOST"
-check_config "db_port" "$PORT"
-check_config "db_user" "$USER"
-check_config "db_password" "$PASSWORD"
-check_config "admin_passwd" "$ADMIN_PASSWORD"
+# Add database connection parameters
+add_db_arg "db_host" "$HOST"
+add_db_arg "db_port" "$PORT"
+add_db_arg "db_user" "$USER"
+add_db_arg "db_password" "$PASSWORD"
 
-echo "Waiting for database to be ready..."
-# Wait for PostgreSQL to be available
-max_retries=30
-retries=0
-until PGPASSWORD=$PASSWORD psql -h $HOST -p $PORT -U $USER -d postgres -c "SELECT 1" > /dev/null 2>&1; do
-    retries=$((retries+1))
-    if [ $retries -ge $max_retries ]; then
-        echo "Error: Could not connect to PostgreSQL after $max_retries attempts"
-        exit 1
-    fi
-    echo "PostgreSQL is unavailable - sleeping 10 second..."
-    sleep 10
-done
-
-echo "PostgreSQL is up - executing command"
-
-# Initialize Odoo database if it doesn't exist
-if ! PGPASSWORD=$PASSWORD psql -h $HOST -p $PORT -U $USER -c '\l' | grep -q $POSTGRES_DB; then
-    echo "Initializing Odoo database..."
-    DB_ARGS+=("--init=base")
-    DB_ARGS+=("--database=$POSTGRES_DB")
-    DB_ARGS+=("--without-demo=all")
-else
-    echo "Database already exists, skipping initialization"
+# Create log directory if it doesn't exist
+if [ ! -d /var/log/odoo ]; then
+    mkdir -p /var/log/odoo
+    chown -R odoo:odoo /var/log/odoo
 fi
 
+# Wait for PostgreSQL to be available (using the wait-for-psql script)
+echo "Waiting for database to be ready..."
+if ! wait-for-psql.py ${DB_ARGS[@]} --timeout=60; then
+    echo "Database connection failure. Exiting."
+    exit 1
+fi
+echo "Database is ready."
+
+# Check if we're in dev mode
+if [ "$BUILD_ENV" = "dev" ]; then
+    echo "Running in development mode"
+    # Enable extra development features
+    DB_ARGS+=("--dev=all")
+    # For debugging with VS Code, uncomment the following line:
+    # DB_ARGS+=("--limit-time-real=10000")
+fi
+
+# Check if the database exists
+DB_EXISTS=$(PGPASSWORD=$PASSWORD psql -h $HOST -p $PORT -U $USER -tAc "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'")
+
+# Initialize database if it doesn't exist
+if [ "$DB_EXISTS" != "1" ]; then
+    echo "Initializing Odoo database '${POSTGRES_DB}'..."
+    
+    # Get modules to initialize from environment variable or use default
+    MODULES_TO_INIT=${INIT_MODULES:-base}
+    echo "Modules to initialize: ${MODULES_TO_INIT}"
+    
+    # Prepare database with basic structure
+    DB_ARGS+=("--init=${MODULES_TO_INIT}")
+    DB_ARGS+=("--database=${POSTGRES_DB}")
+    DB_ARGS+=("--without-demo=${WITHOUT_DEMO:-all}")
+    
+    # Create the database and install initial modules
+    echo "Running initial module installation..."
+    odoo "${DB_ARGS[@]}"
+    
+    echo "Database initialization completed"
+    
+    # Remove the initialization flags for normal startup
+    # We need to recreate the array to properly remove the init parameter
+    NEW_DB_ARGS=()
+    for arg in "${DB_ARGS[@]}"; do
+        if [[ "$arg" != "--init=${MODULES_TO_INIT}" && "$arg" != "--without-demo=${WITHOUT_DEMO:-all}" ]]; then
+            NEW_DB_ARGS+=("$arg")
+        fi
+    done
+    DB_ARGS=("${NEW_DB_ARGS[@]}")
+    
+    echo "Continuing with normal startup..."
+else
+    echo "Database '${POSTGRES_DB}' already exists, skipping initialization"
+fi
+
+# Process the command
 case "$1" in
     -- | odoo)
         shift
-        if [[ "$1" == "scaffold" ]] ; then
+        if [[ "$1" == "scaffold" ]]; then
             exec odoo "$@"
         else
+            echo "Starting Odoo server..."
             exec odoo "$@" "${DB_ARGS[@]}"
         fi
         ;;
     -*)
+        echo "Starting Odoo server with custom options..."
         exec odoo "$@" "${DB_ARGS[@]}"
         ;;
     *)
+        echo "Executing custom command: $@"
         exec "$@"
 esac

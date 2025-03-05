@@ -1,37 +1,17 @@
-
-networks:
-  odoo-network:
-    driver: bridge
-
-volumes:
-  db-data:
-    name: odoo-db-data
-  odoo-data:
-    name: odoo-data
-  odoo-addons:
-    name: odoo-addons
-  backup-data:
-    name: odoo-backup-data
-  nginx-certs:
-    name: odoo-nginx-certs
-  nginx-www:
-    name: odoo-nginx-www
+version: '3.8'
 
 services:
   db:
     image: postgres:15-alpine
     container_name: odoo-db
+    restart: always
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_DB=${POSTGRES_DB}
       - PGDATA=/var/lib/postgresql/data/pgdata
-      - LANG=en_US.UTF-8
-      - LC_ALL=en_US.UTF-8
-    command: ["postgres", "-c", "client_encoding=UTF8"]
     volumes:
-      - db-data:/var/lib/postgresql/data/pgdata:z
-    restart: always
+      - ${DB_VOLUME_PATH:-./data/db}:/var/lib/postgresql/data/pgdata:z
     networks:
       - odoo-network
     healthcheck:
@@ -43,81 +23,57 @@ services:
 
   odoo:
     build:
-      context: ./
-      dockerfile: Dockerfile
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 1G
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - ODOO_VERSION=${ODOO_VERSION}
+        - ODOO_RELEASE=${ODOO_RELEASE}
+        - ODOO_SHA=${ODOO_SHA}
+        - BUILD_ENV=${BUILD_ENV:-prod}
     container_name: odoo-app
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "8069:8069"
-      - "8072:8072"
+      - "${ODOO_PORT:-8069}:8069"
+      - "${ODOO_LONGPOLL_PORT:-8072}:8072"
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_DB=${POSTGRES_DB}
       - HOST=db
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - DOMAIN=${DOMAIN}
+      - BUILD_ENV=${BUILD_ENV:-prod}
+      - INIT_MODULES=${INIT_MODULES:-base,web}
+      - WITHOUT_DEMO=${WITHOUT_DEMO:-all}
     volumes:
-      - odoo-data:/var/lib/odoo:z
-      - odoo-addons:/mnt/extra-addons:z
-      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+      - ${ODOO_DATA_PATH:-./data/odoo}:/var/lib/odoo:z
+      - ${ODOO_ADDONS_PATH:-./addons}:/mnt/extra-addons:z
+      - ${ODOO_CONFIG_PATH:-./config/odoo.conf.template}:/etc/odoo/odoo.conf.template:ro
     restart: always
     networks:
       - odoo-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8069/web/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
 
   nginx:
     image: nginx:alpine
     container_name: odoo-nginx
     depends_on:
-      odoo:
-        condition: service_healthy
+      - odoo
     ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN=${DOMAIN}
-      - SSL_ENABLED=${SSL_ENABLED:-false}
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./config/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./logs/nginx:/var/log/nginx
-      - nginx-certs:/etc/letsencrypt
-      - nginx-www:/var/www/certbot
+      - ./config/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ${NGINX_LOG_PATH:-./logs/nginx}:/var/log/nginx
+      - ${SSL_CERT_PATH:-./data/nginx/ssl}:/etc/nginx/ssl:ro
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - NGINX_HOST=${DOMAIN:-localhost}
+      - NGINX_PORT=80
     restart: always
     networks:
       - odoo-network
-    command: /bin/sh -c "envsubst '$$DOMAIN $$SSL_ENABLED' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"
 
-  backup:
-    image: postgres:15-alpine
-    container_name: odoo-backup
-    environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
-    volumes:
-      - backup-data:/backups
-      - ./scripts/backup-entrypoint.sh:/backup-entrypoint.sh:ro
-    networks:
-      - odoo-network
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-    entrypoint: ["/bin/sh", "/backup-entrypoint.sh"]
+networks:
+  odoo-network:
+    driver: bridge
