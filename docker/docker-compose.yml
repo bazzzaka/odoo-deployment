@@ -58,6 +58,7 @@ services:
     volumes:
       - ${ODOO_DATA_PATH:-./data/odoo}:/var/lib/odoo:z
       - ${ODOO_ADDONS_PATH:-./addons}:/mnt/extra-addons:z
+      - ./logs/odoo:/var/log/odoo:z
     restart: always
     networks:
       - odoo-network

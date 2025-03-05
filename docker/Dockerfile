@@ -1,5 +1,17 @@
 FROM ubuntu:noble
 
+# Generate locale to prevent perl warnings
+RUN apt-get update && \
+    apt-get install -y locales && \
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# Set complete locale environment variables
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
+
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 # Build arguments
@@ -9,8 +21,7 @@ ARG ODOO_SHA=122896192ed221711dd471d27b2bd2f934c2ec07
 ARG BUILD_ENV=prod
 
 # Set environment variables
-ENV LANG=en_US.UTF-8 \
-    DEBIAN_FRONTEND=noninteractive \
+ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     ODOO_VERSION=${ODOO_VERSION} \
     PATH="/opt/venv/bin:$PATH"
