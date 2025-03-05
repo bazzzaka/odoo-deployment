@@ -2,6 +2,9 @@
 ; This is the password that allows database operations:
 admin_passwd = ${ADMIN_PASSWORD}
 
+; Module initialization settings - used only during first run
+; init = ${INIT_MODULES}
+
 ; Database settings
 db_host = db
 db_port = 5432
@@ -12,29 +15,30 @@ db_template = template0
 db_maxconn = 64
 
 ; Addons settings
-addons_path = /mnt/extra-addons
+addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
 
 ; Worker settings - adapt based on server resources
-workers = 4
-max_cron_threads = 2
+; For small servers: workers = 2, for larger servers: workers = #CPUs
+workers = ${WORKERS:-2}
+max_cron_threads = ${CRON_WORKERS:-1}
 
 ; Performance tuning
-limit_memory_soft = 2147483648
-limit_memory_hard = 2684354560
+limit_memory_soft = ${MEMORY_SOFT:-2147483648}
+limit_memory_hard = ${MEMORY_HARD:-2684354560}
 limit_request = 8192
-limit_time_cpu = 60
-limit_time_real = 120
+limit_time_cpu = ${CPU_LIMIT:-60}
+limit_time_real = ${REAL_LIMIT:-120}
 
 ; Data handling
 data_dir = /var/lib/odoo
-list_db = True
+list_db = ${LIST_DB:-True}
 log_db = False
 proxy_mode = True
-without_demo = True
+without_demo = ${WITHOUT_DEMO:-True}
 
 ; Logging settings
 logfile = /var/log/odoo/odoo-server.log
-log_level = info
+log_level = ${LOG_LEVEL:-info}
 log_handler = [':INFO']
 logrotate = True
 
@@ -50,5 +54,11 @@ xmlrpcs = True
 xmlrpcs_interface = 
 xmlrpcs_port = 8071
 
-; Comma-separated list of server-wide modules
+; Server-wide modules
 server_wide_modules = base,web
+
+; Development settings (only effective in development mode)
+; dev_mode = ${DEV_MODE:-False}
+; test_enable = ${TEST_ENABLE:-False}
+; test_file = ${TEST_FILE:-False}
+; running_env = ${RUNNING_ENV:-production}
