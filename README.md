@@ -1,197 +1,229 @@
 # Odoo 18 Deployment Solution
 
-This repository provides a comprehensive, automated solution for deploying Odoo 18 on a clean Ubuntu 20.04 VPS. The deployment is done using Docker and includes all necessary components for a production-ready setup.
+This repository provides a comprehensive, automated solution for deploying Odoo 18 in both development and production environments using Docker. The deployment is built with security, scalability, and ease of maintenance in mind.
 
 ## Features
 
-- **Fully Automated Setup**: Deploy Odoo with just a few commands
-- **Docker-based**: All components run in Docker containers for isolation and ease of management
-- **Latest Technologies**: Odoo 18 with Python 3.12 and PostgreSQL 15
-- **Secure Configuration**: Following best practices for secure deployment
-- **Automatic Backups**: Daily database backups with retention policy
-- **Nginx Integration**: Configured as a reverse proxy with proper headers
-- **Custom Addons Support**: Easily add and manage custom Odoo modules
-- **Comprehensive Documentation**: Clear instructions for all operations
+- **Docker-based Deployment**: Isolated, reproducible environments for both development and production
+- **Fully Automated Setup**: Complete setup with a single command
+- **Environment-aware Configuration**: Different settings for development and production
+- **Security Best Practices**: Follows industry standards for secure deployment
+- **Database Management**: Automated backups with retention policy
+- **Performance Optimization**: Configurable for different server sizes
+- **Python 3.12 Support**: Built on the latest Python for Odoo 18
+- **Easy Updates**: Simple commands for updating Odoo
+- **Custom Addons Support**: Simple integration of custom modules
 
 ## Requirements
 
-- Ubuntu 20.04 VPS with root access
-- At least 2GB RAM (4GB recommended)
-- At least 20GB storage
+- Docker and Docker Compose v2+
+- 2GB RAM minimum (4GB recommended for production)
+- 20GB disk space minimum
 
 ## Quick Start
 
 1. **Clone the repository**:
-   ```
-   git clone https://github.com/yourusername/odoo-deploy.git
+   ```bash
+   git clone https://github.com/your-username/odoo-deploy.git
    cd odoo-deploy
    ```
 
-2. **Configure deployment**:
-   ```
+2. **Configure environment**:
+   ```bash
    cp .env.example .env
-   # Edit .env with your desired settings
-   nano .env
+   # Edit .env with your settings
    ```
 
-3. **Run the setup**:
-   ```
+3. **Run setup and start Odoo**:
+   ```bash
+   # For initial setup
    make setup
+   
+   # For development environment
+   make dev
+   
+   # For production environment
+   make prod
    ```
+
+   The system will automatically initialize the database with the modules specified in the `INIT_MODULES` environment variable during the first run.
 
 4. **Access Odoo**:
-   Once the setup is complete, access Odoo at http://your-server-ip
-   
-## Configuration Options
-
-Edit the `.env` file to customize your deployment:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| DOMAIN | Your domain name | localhost |
-| POSTGRES_USER | PostgreSQL username | odoo |
-| POSTGRES_PASSWORD | PostgreSQL password | odoo_db_password |
-| POSTGRES_DB | PostgreSQL database name | odoo |
-| ADMIN_PASSWORD | Odoo master password | admin_password |
-| BACKUP_RETENTION_DAYS | Days to keep backups | 30 |
+   - Development: http://localhost:8069
+   - Production: http://your-domain
 
 ## Directory Structure
 
-- `scripts/`: Setup and maintenance scripts
-- `docker/`: Docker configuration files
-- `config/`: Configuration templates 
-- `data/`: Persistent data storage
-  - `db/`: PostgreSQL data
-  - `odoo/`: Odoo data directory
-  - `backups/`: Database backups
-- `addons/`: Custom Odoo modules
-- `logs/`: Log files
+```
+odoo-deploy/
+├── addons/              # Custom Odoo modules
+├── config/              # Configuration templates
+│   ├── odoo.conf.template
+│   └── nginx.conf.template
+├── data/                # Persistent data
+│   ├── db/              # PostgreSQL data
+│   ├── odoo/            # Odoo filestore
+│   └── backups/         # Database backups
+├── docker/              # Docker configuration
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   └── entrypoint.sh
+├── logs/                # Log files
+├── scripts/             # Utility scripts
+│   ├── backup.sh
+│   └── restore.sh
+├── .env.example         # Environment variables template
+├── Makefile             # Automation commands
+└── README.md            # Documentation
+```
+
+## Configuration
+
+The deployment is configured through environment variables in the `.env` file:
+
+### Basic Configuration
+- `DOMAIN`: Your domain name (default: localhost)
+- `POSTGRES_USER`: Database username (default: odoo)
+- `POSTGRES_PASSWORD`: Database password
+- `POSTGRES_DB`: Database name (default: odoo)
+- `ADMIN_PASSWORD`: Odoo master password
+- `INIT_MODULES`: Comma-separated list of modules to install at first run (default: base,web,mail,contacts,crm,sale_management,purchase,account,stock)
+
+### Performance Configuration
+- `WORKERS`: Number of Odoo worker processes (default: 2)
+- `CRON_WORKERS`: Number of cron worker processes (default: 1)
+- `MEMORY_SOFT`: Soft memory limit for workers (default: 2GB)
+- `MEMORY_HARD`: Hard memory limit for workers (default: 2.5GB)
+
+### Volume Paths
+- `ODOO_DATA_PATH`: Path for Odoo data files
+- `DB_VOLUME_PATH`: Path for PostgreSQL data
+- `ODOO_ADDONS_PATH`: Path for custom Odoo modules
 
 ## Available Commands
 
-Use the `make` command to manage your Odoo deployment:
+Use the Makefile to manage your Odoo deployment:
 
-- `make help`: Show available commands
-- `make setup`: Initial setup of all components
-- `make start`: Start all services
-- `make stop`: Stop all services
-- `make restart`: Restart all services
-- `make status`: Show status of running services
-- `make logs`: View logs from all services
-- `make shell`: Open a shell in the Odoo container
-- `make backup`: Create a database backup
-- `make restore BACKUP_FILE=<path>`: Restore database from backup
-- `make update`: Update Odoo and rebuild the container
-- `make clean`: Remove all containers and volumes
+- **Setup and Environment**:
+  - `make setup`: Initial setup of directories and configurations
+  - `make dev`: Start development environment
+  - `make prod`: Start production environment
 
-## Custom Modules
+- **Service Management**:
+  - `make start`: Start all services
+  - `make stop`: Stop all services
+  - `make restart`: Restart all services
+  - `make status`: Show service status
+  - `make logs`: View logs
 
-To add custom Odoo modules, place them in the `addons/` directory. They will be automatically available in Odoo.
+- **Maintenance**:
+  - `make backup`: Create database backup
+  - `make restore BACKUP_FILE=path/to/backup`: Restore database
+  - `make update`: Update Odoo to latest version
+  - `make clean`: Remove containers and volumes
+  - `make shell`: Open shell in Odoo container
+  - `make install-modules MODULES=module1,module2`: Install or update specific Odoo modules
+
+## Module Management
+
+### Initial Module Installation
+
+During the first startup, the system automatically installs modules specified in the `INIT_MODULES` environment variable. By default, this includes:
+
+```
+base,web,mail,contacts,crm,sale_management,purchase,account,stock
+```
+
+You can customize this list in your `.env` file before the first run.
+
+### Custom Modules
+
+Place your custom Odoo modules in the `addons/` directory. They will be automatically available in Odoo.
+
+### Installing Additional Modules
+
+To install or update modules after the initial setup:
+
+```bash
+make install-modules MODULES=module1,module2,module3
+```
+
+This command will:
+1. Connect to the running Odoo container
+2. Install or update the specified modules
+3. Restart the necessary services
+
+### Module Development
+
+For module development, use the development environment:
+
+```bash
+make dev
+```
+
+This enables Odoo's development mode with:
+- Auto-reload for Python changes
+- Debug tools and error reporting
+- Asset generation in development mode
 
 ## Backup and Restore
 
-Automatic daily backups are configured. Backups are stored in the `data/backups/` directory.
+The system is configured for automated daily backups. Backups are stored in the `data/backups/` directory.
 
-To manually create a backup:
-```
+**Manual backup**:
+```bash
 make backup
 ```
 
-To restore from a backup:
-```
-make restore BACKUP_FILE=data/backups/odoo-20250228_120000.sql.gz
+**Restore from backup**:
+```bash
+make restore BACKUP_FILE=data/backups/odoo_20250305_120000.dump.gz
 ```
 
 ## Security Recommendations
 
-1. Change all default passwords in the `.env` file
-2. Enable and configure SSL/TLS for production use
-3. Configure a firewall to restrict access to essential ports
-4. Regularly update all components
-5. Monitor logs for suspicious activity
+1. **Change default passwords** in the `.env` file
+2. **Enable SSL/TLS** by uncommenting the relevant sections in the Nginx configuration
+3. **Restrict database access** by setting `LIST_DB=False` in `.env`
+4. **Configure a firewall** to restrict access to essential ports
+5. **Regular updates** for security patches
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Database connection errors**:
-   - Check PostgreSQL container is running
+   - Check PostgreSQL container is running: `make status`
    - Verify database credentials in `.env`
-   - Ensure database volume permissions are correct
+   - Ensure volume permissions are correct
 
 2. **Odoo not starting**:
-   - Check logs with `make logs`
+   - Check logs: `make logs`
    - Ensure database is available
-   - Verify configuration in `config/odoo.conf`
+   - Verify configuration in `.env`
 
-3. **Nginx errors**:
-   - Check Nginx configuration
-   - Verify domain settings
-   - Ensure ports are not in use by other services
+3. **Performance issues**:
+   - Adjust worker count in `.env` based on your server specs
+   - Increase memory limits for larger deployments
+   - Consider separate database server for high-load scenarios
 
 ## Maintenance
 
-### Regular Updates
+### Updates
 
 To update Odoo to the latest version:
-```
+```bash
 make update
 ```
 
 ### Monitoring
 
-Monitor disk space, memory usage, and CPU utilization regularly.
+Regularly check:
+- Disk space usage
+- Memory usage
+- Database backup integrity
+- Log files for errors
 
 ## License
 
 This deployment solution is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgements
-
-- [Odoo](https://www.odoo.com/) - The most awesome business software ever
-- [Docker](https://www.docker.com/) - Container virtualization
-- [PostgreSQL](https://www.postgresql.org/) - Advanced open source database
-- [Nginx](https://nginx.org/) - High-performance HTTP server
-
-## Structure
-```
-odoo-deploy/
-├── scripts/
-│   ├── setup.sh                # Main setup script
-│   ├── install_deps.sh         # Install dependencies
-│   ├── setup_docker.sh         # Setup Docker and docker-compose
-│   ├── setup_nginx.sh          # Setup Nginx
-│   └── setup_backup.sh         # Setup database backup
-├── docker/
-│   ├── Dockerfile              # Odoo Docker image
-│   ├── docker-compose.yml      # Composition of services
-│   └── entrypoint.sh           # Container entrypoint
-├── config/
-│   ├── odoo.conf.template      # Odoo config template
-│   └── nginx.conf.template     # Nginx config template
-├── data/
-│   ├── db/                     # PostgreSQL data
-│   ├── odoo/                   # Odoo data directory
-│   └── backups/                # Database backups
-├── addons/
-│   └── .gitkeep                # For custom modules
-├── .env.example                # Environment variables template
-├── Makefile                    # Automation commands
-└── README.md                   # Documentation
-```
-
-
-
-Switch to PostgreSQL user:
-sudo -u postgres psql
-Create a new PostgreSQL user for Odoo (replace 'odoo_user' with your desired username):
-CREATE USER odoo_user WITH ENCRYPTED PASSWORD 'your_strong_password';
-Create the Odoo database:
-CREATE DATABASE odoo_database;
-Grant all privileges to the user on the database:
-GRANT ALL PRIVILEGES ON DATABASE odoo_database TO odoo_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO odoo_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO odoo_user;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO odoo_user;
-Exit PostgreSQL prompt:
-\q
