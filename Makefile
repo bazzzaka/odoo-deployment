@@ -41,7 +41,7 @@ setup:
 	fi
 	@mkdir -p data/db data/odoo data/backups logs addons
 	@echo "Creating Docker network..."
-	@docker network create odoo-network 2>/dev/null || true
+	@docker network create odoo-network 2>>logs/docker-errors.log || true
 	@echo "Environment setup completed. You can now start the system with 'make prod' or 'make dev'"
 
 dev:
