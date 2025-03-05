@@ -82,6 +82,10 @@ RUN apt-get update && \
         git \
         jq \
         moreutils \
+        sudo \
+        # User management utilities
+        passwd \
+        util-linux \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -147,8 +151,8 @@ EXPOSE 8069 8071 8072
 # Set the default config file
 ENV ODOO_RC=/etc/odoo/odoo.conf
 
-# Set odoo user for security
-USER odoo
+# The entrypoint script uses runuser for proper user management
+#USER odoo
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["odoo"]
