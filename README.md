@@ -30,8 +30,13 @@ This repository provides a comprehensive, automated solution for deploying Odoo 
 
 2. **Configure environment**:
    ```bash
-   cp .env.example .env
    # Edit .env with your settings
+   cp .env.example .env
+   ```
+   ```bash
+   # make exutes the setups script
+   sudo chmod +x Makefile
+   sudo chmod +x dicker/entrypoint.sh
    ```
 
 3. **Run setup and start Odoo**:
